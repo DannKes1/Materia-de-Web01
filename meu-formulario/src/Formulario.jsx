@@ -11,7 +11,8 @@ const Formulario = () => {
     nomePai: "",
     nomeMae: "",
     cep: "",
-    endereco: "",
+    rua: "",
+    bairro: "",
     numero: "",
     complemento: "",
     cidade: "",
@@ -36,6 +37,7 @@ const Formulario = () => {
   });
 
   const [isMinor, setIsMinor] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Atualiza o estado conforme o usuário digita
   const handleChange = (e) => {
@@ -235,6 +237,35 @@ const Formulario = () => {
     }
   }, [formData.dataNascimento]);
 
+  // Função para buscar o CEP e preencher os campos de endereço (incluindo rua e bairro)
+  const handleCepSearch = async () => {
+    const valid = validateCEP(formData.cep);
+    if (!valid) return;
+    setIsLoading(true);
+    try {
+      const cepDigits = formData.cep.replace(/\D/g, "");
+      const response = await fetch(`https://viacep.com.br/ws/${cepDigits}/json/`);
+      const data = await response.json();
+      if (data.erro) {
+        setErrors((prev) => ({ ...prev, cep: "CEP não encontrado" }));
+      } else {
+        setFormData((prev) => ({
+          ...prev,
+          rua: data.logradouro || "",
+          bairro: data.bairro || "",
+          complemento: data.complemento || "",
+          cidade: data.localidade || "",
+          estado: data.uf || "",
+        }));
+        setErrors((prev) => ({ ...prev, cep: "" }));
+      }
+    } catch (error) {
+      setErrors((prev) => ({ ...prev, cep: "Erro ao buscar CEP" }));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Função para submissão do formulário
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -425,33 +456,66 @@ const Formulario = () => {
             )}
           </div>
         </div>
+
         {/* Seção de Endereço */}
         <div className="card mb-4">
           <div className="card-header bg-success text-white">Endereço</div>
           <div className="card-body">
             <div className="mb-3">
               <label className="form-label">CEP:</label>
-              <input
-                type="text"
-                name="cep"
-                value={formData.cep}
-                onChange={(e) => {
-                  handleChange(e);
-                  validateCEP(e.target.value);
-                }}
-                placeholder="XXXXX-XXX ou 8 dígitos"
-                className={`form-control ${errors.cep ? "is-invalid" : ""}`}
-              />
+              <div className="input-group">
+                <input
+                  type="text"
+                  name="cep"
+                  value={formData.cep}
+                  onChange={(e) => {
+                    handleChange(e);
+                    validateCEP(e.target.value);
+                  }}
+                  placeholder="XXXXX-XXX ou 8 dígitos"
+                  className={`form-control ${errors.cep ? "is-invalid" : ""}`}
+                  disabled={isLoading}
+                />
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary"
+                  onClick={handleCepSearch}
+                  disabled={isLoading || !!errors.cep}
+                >
+                  {isLoading ? (
+                    <>
+                      <span
+                        className="spinner-border spinner-border-sm"
+                        role="status"
+                        aria-hidden="true"
+                      ></span>
+                      Buscando...
+                    </>
+                  ) : (
+                    "Buscar CEP"
+                  )}
+                </button>
+              </div>
               {errors.cep && (
-                <div className="invalid-feedback">{errors.cep}</div>
+                <div className="invalid-feedback d-block">{errors.cep}</div>
               )}
             </div>
             <div className="mb-3">
-              <label className="form-label">Endereço:</label>
+              <label className="form-label">Rua:</label>
               <input
                 type="text"
-                name="endereco"
-                value={formData.endereco}
+                name="rua"
+                value={formData.rua}
+                onChange={handleChange}
+                className="form-control"
+              />
+            </div>
+            <div className="mb-3">
+              <label className="form-label">Bairro:</label>
+              <input
+                type="text"
+                name="bairro"
+                value={formData.bairro}
                 onChange={handleChange}
                 className="form-control"
               />
@@ -502,6 +566,7 @@ const Formulario = () => {
             </div>
           </div>
         </div>
+
         {/* Seção de Informações da Conta */}
         <div className="card mb-4">
           <div className="card-header bg-info text-white">
